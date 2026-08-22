@@ -2,6 +2,8 @@ import dataclasses
 import os
 from typing import Any
 
+import warnings
+
 import optuna
 from optuna.pruners import HyperbandPruner
 from optuna.samplers import TPESampler
@@ -10,9 +12,14 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 import torch
 
 try:
-    from optuna.integration import PyTorchLightningPruningCallback, WeightsAndBiasesCallback
+    from optuna_integration.pytorch_lightning import PyTorchLightningPruningCallback
 except ImportError:
-    from optuna_integration import PyTorchLightningPruningCallback, WeightsAndBiasesCallback
+    try:
+        from optuna_integration import PyTorchLightningPruningCallback
+    except ImportError:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=FutureWarning)
+            from optuna.integration import PyTorchLightningPruningCallback
 
 from .callbacks import EMACallback
 from .config import RecRecConfig
@@ -33,6 +40,45 @@ def get_wandb_api_key() -> str | None:
         return UserSecretsClient().get_secret("WANDB_API_KEY")
     except Exception:
         return os.environ.get("WANDB_API_KEY")
+
+
+def get_wandb_study_callback(metric_name: str = "val_ndcg10", project_name: str = "recrec-recsys") -> Any | None:
+    """Returns W&B callback for Optuna study, supporting optunahub, optuna_integration, and optuna.integration."""
+    try:
+        import optunahub
+
+        wandb_module = optunahub.load_module("callbacks/wandb")
+        return wandb_module.WeightsAndBiasesCallback(
+            metric_name=metric_name,
+            wandb_kwargs={"project": project_name, "name": "optuna-hpo-study"},
+            as_multirun=False,
+        )
+    except Exception:
+        pass
+
+    try:
+        from optuna_integration.wandb import WeightsAndBiasesCallback
+
+        return WeightsAndBiasesCallback(
+            metric_name=metric_name,
+            wandb_kwargs={"project": project_name, "name": "optuna-hpo-study"},
+            as_multirun=False,
+        )
+    except Exception:
+        pass
+
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=FutureWarning)
+            from optuna.integration.wandb import WeightsAndBiasesCallback
+
+            return WeightsAndBiasesCallback(
+                metric_name=metric_name,
+                wandb_kwargs={"project": project_name, "name": "optuna-hpo-study"},
+                as_multirun=False,
+            )
+    except Exception:
+        return None
 
 
 def sample_hyperparameters(trial: optuna.Trial) -> dict[str, Any]:
@@ -134,16 +180,13 @@ def run_hparam_search_and_train(
         study_name="recrec_tpe_hyperband",
     )
 
-    # 2. Official Optuna WandB integration callback for the study
+    # 2. W&B Integration Callback for the study
     api_key = get_wandb_api_key()
     study_callbacks = []
     if api_key:
-        wandb_cb = WeightsAndBiasesCallback(
-            metric_name="val_ndcg10",
-            wandb_kwargs={"project": project_name, "name": "optuna-hpo-study"},
-            as_multirun=False,
-        )
-        study_callbacks.append(wandb_cb)
+        wandb_cb = get_wandb_study_callback(metric_name="val_ndcg10", project_name=project_name)
+        if wandb_cb is not None:
+            study_callbacks.append(wandb_cb)
 
     print(f"Starting HPO search: {n_trials} trials, max {search_epochs} epochs per trial.")
     objective = create_objective(
