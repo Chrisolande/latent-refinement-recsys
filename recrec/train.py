@@ -95,6 +95,7 @@ def main() -> None:
         accelerator="auto",
         devices="auto",
         callbacks=[ema_callback],
+        gradient_clip_val=config.grad_clip,
         logger=[wandb_logger] if wandb_logger is not None else True,
         enable_progress_bar=True,
     )

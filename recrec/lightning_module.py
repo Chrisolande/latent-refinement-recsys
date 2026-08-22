@@ -67,4 +67,8 @@ class RecRecLightning(pl.LightningModule):
             self.log(f"val_{name.lower().replace('@', '')}", value, prog_bar=(name == "NDCG@10"))
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
-        return torch.optim.Adam(self.parameters(), lr=self.config.learning_rate)
+        return torch.optim.Adam(
+            self.parameters(),
+            lr=self.config.learning_rate,
+            weight_decay=self.config.weight_decay,
+        )

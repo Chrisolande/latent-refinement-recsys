@@ -25,7 +25,7 @@ class InputEncoding(nn.Module):
 
 
 class CoreRecursionMLP(nn.Module):
-    def __init__(self, embedding_dim: int, depth: int):
+    def __init__(self, embedding_dim: int, depth: int, dropout: float = 0.0):
         super().__init__()
         if depth < 1:
             raise ValueError(f"depth must be >= 1, got {depth}")
@@ -35,6 +35,8 @@ class CoreRecursionMLP(nn.Module):
             in_dim = 3 * embedding_dim if layer_idx == 0 else embedding_dim
             layers.append(nn.Linear(in_dim, embedding_dim))
             layers.append(nn.LayerNorm(embedding_dim))
+            if dropout > 0.0:
+                layers.append(nn.Dropout(dropout))
             if layer_idx < depth - 1:
                 layers.append(nn.ReLU())
 
@@ -52,7 +54,11 @@ class RecursivePreferenceRefinement(nn.Module):
         self.inner_steps = config.inner_steps
         self.preference_scale = config.preference_scale
 
-        self.f_phi = CoreRecursionMLP(embedding_dim=d, depth=config.core_depth)
+        self.f_phi = CoreRecursionMLP(
+            embedding_dim=d,
+            depth=config.core_depth,
+            dropout=config.dropout,
+        )
         self.correction_gates = nn.ModuleList(
             [nn.Linear(2 * d, d) for _ in range(config.outer_steps)]
         )

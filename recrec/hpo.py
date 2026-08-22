@@ -84,14 +84,24 @@ def get_wandb_study_callback(metric_name: str = "val_ndcg10", project_name: str 
 def sample_hyperparameters(trial: optuna.Trial) -> dict[str, Any]:
     """Defines search space for RecRec hyperparameters."""
     return {
+        # Optimization
         "learning_rate": trial.suggest_float("learning_rate", 1e-4, 5e-3, log=True),
-        "temperature": trial.suggest_float("temperature", 0.5, 2.0, step=0.1),
-        "preference_scale": trial.suggest_float("preference_scale", 0.5, 2.0, step=0.1),
+        "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True),
+        "grad_clip": trial.suggest_float("grad_clip", 0.5, 5.0, step=0.5),
+
+        # Model Architecture
         "inner_steps": trial.suggest_int("inner_steps", 1, 4),
         "outer_steps": trial.suggest_int("outer_steps", 3, 8),
         "core_depth": trial.suggest_int("core_depth", 3, 6),
+        "dropout": trial.suggest_float("dropout", 0.1, 0.5, step=0.1),
+
+        # Loss / Scaling (Continuous log scale to catch small optimal values)
+        "temperature": trial.suggest_float("temperature", 0.05, 2.0, log=True),
+        "preference_scale": trial.suggest_float("preference_scale", 0.1, 2.0, log=True),
+
+        # Regularization / Hardware
         "ema_decay": trial.suggest_categorical("ema_decay", [0.99, 0.999, 0.9995]),
-        "batch_size": trial.suggest_categorical("batch_size", [256, 512]),
+        "batch_size": trial.suggest_categorical("batch_size", [128, 256, 512]),
     }
 
 
@@ -133,6 +143,7 @@ def create_objective(
             accelerator="auto",
             devices="auto",
             callbacks=[ema_cb, pruning_cb],
+            gradient_clip_val=trial_config.grad_clip,
             enable_progress_bar=False,
             logger=False,
             enable_checkpointing=False,
@@ -247,6 +258,7 @@ def run_hparam_search_and_train(
         accelerator="auto",
         devices="auto",
         callbacks=[ema_callback, checkpoint_callback, early_stop_callback],
+        gradient_clip_val=best_config.grad_clip,
         logger=[wandb_logger] if wandb_logger is not None else True,
         enable_progress_bar=True,
     )
