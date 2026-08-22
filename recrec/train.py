@@ -58,7 +58,9 @@ def get_device_and_strategy() -> tuple[int | str, DDPStrategy | str]:
         if num_gpus > 1:
             try:
                 get_ipython()  # type: ignore
-                return num_gpus, DDPStrategy(start_method="fork", find_unused_parameters=False)
+                # In interactive Jupyter notebooks, CUDA context initialization in the kernel
+                # prevents multiprocessing fork. Fall back to 1 GPU in-kernel, or run via CLI for DDP.
+                return 1, "auto"
             except NameError:
                 return num_gpus, DDPStrategy(find_unused_parameters=False)
         return 1, "auto"

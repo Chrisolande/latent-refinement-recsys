@@ -143,13 +143,14 @@ def create_objective(
         # Official Optuna PyTorch Lightning pruning callback
         pruning_cb = PyTorchLightningPruningCallback(trial=trial, monitor="val_ndcg10")
         ema_cb = EMACallback(decay=trial_config.ema_decay)
-        devices, strategy = get_device_and_strategy()
+
+        num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 1
+        trial_device = [trial.number % num_gpus] if torch.cuda.is_available() and num_gpus > 1 else "auto"
 
         trainer = pl.Trainer(
             max_epochs=search_epochs,
             accelerator="auto",
-            devices=devices,
-            strategy=strategy,
+            devices=trial_device,
             callbacks=[ema_cb, pruning_cb],
             gradient_clip_val=trial_config.grad_clip,
             enable_progress_bar=False,
@@ -207,7 +208,10 @@ def run_hparam_search_and_train(
         if wandb_cb is not None:
             study_callbacks.append(wandb_cb)
 
-    print(f"Starting HPO search: {n_trials} trials, max {search_epochs} epochs per trial.")
+    num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 1
+    n_jobs = num_gpus if num_gpus > 1 else 1
+
+    print(f"Starting HPO search: {n_trials} trials, {n_jobs} parallel GPU worker(s), max {search_epochs} epochs per trial.")
     objective = create_objective(
         train_pairs=train_pairs,
         val_pairs=val_pairs,
@@ -216,7 +220,7 @@ def run_hparam_search_and_train(
         search_epochs=search_epochs,
     )
 
-    study.optimize(objective, n_trials=n_trials, callbacks=study_callbacks)
+    study.optimize(objective, n_trials=n_trials, n_jobs=n_jobs, callbacks=study_callbacks)
 
     print(f"HPO complete. Best trial #{study.best_trial.number} (Val NDCG@10: {study.best_value:.5f})")
     print(f"Best hyperparameters: {study.best_params}")
