@@ -49,15 +49,18 @@ def setup_wandb_logger(project_name: str = "recrec-recsys", run_name: str = "rec
     return None
 
 
-def get_device_and_strategy() -> tuple[int | str, str]:
+from pytorch_lightning.strategies import DDPStrategy
+
+
+def get_device_and_strategy() -> tuple[int | str, DDPStrategy | str]:
     if torch.cuda.is_available():
-        count = torch.cuda.device_count()
-        if count > 1:
+        num_gpus = torch.cuda.device_count()
+        if num_gpus > 1:
             try:
                 get_ipython()  # type: ignore
-                return count, "ddp_notebook"
+                return num_gpus, DDPStrategy(start_method="fork", find_unused_parameters=False)
             except NameError:
-                return count, "ddp"
+                return num_gpus, DDPStrategy(find_unused_parameters=False)
         return 1, "auto"
     return "auto", "auto"
 
