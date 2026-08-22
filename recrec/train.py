@@ -1,8 +1,11 @@
+import os
 import random
 
 import numpy as np
 import pytorch_lightning as pl
+from pytorch_lightning.loggers import WandbLogger
 import torch
+import wandb
 
 from .callbacks import EMACallback
 from .config import RecRecConfig
@@ -26,6 +29,24 @@ def set_seed(seed: int = SEED) -> None:
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+
+
+def setup_wandb_logger(project_name: str = "recrec-recsys", run_name: str = "recrec-run") -> WandbLogger | None:
+    api_key = None
+    try:
+        from kaggle_secrets import UserSecretsClient
+
+        user_secrets = UserSecretsClient()
+        api_key = user_secrets.get_secret("WANDB_API_KEY")
+    except Exception:
+        api_key = os.environ.get("WANDB_API_KEY")
+
+    if api_key:
+        wandb.login(key=api_key)
+        return WandbLogger(project=project_name, name=run_name, log_model=True)
+
+    print("WANDB_API_KEY not found in Kaggle Secrets or environment. Using default logger.")
+    return None
 
 
 def main() -> None:
@@ -67,16 +88,22 @@ def main() -> None:
     inspect_one_batch(model, datamodule.train_dataloader())
 
     ema_callback = EMACallback(decay=config.ema_decay)
+    wandb_logger = setup_wandb_logger(project_name="recrec-recsys", run_name="recrec-training")
+
     trainer = pl.Trainer(
         max_epochs=config.max_epochs,
         accelerator="auto",
         devices="auto",
         callbacks=[ema_callback],
+        logger=[wandb_logger] if wandb_logger is not None else True,
         enable_progress_bar=True,
     )
 
     trainer.fit(model, datamodule=datamodule)
     trainer.validate(model, datamodule=datamodule)
+
+    if wandb.run is not None:
+        wandb.finish()
 
 
 if __name__ == "__main__":
