@@ -49,6 +49,19 @@ def setup_wandb_logger(project_name: str = "recrec-recsys", run_name: str = "rec
     return None
 
 
+def get_device_and_strategy() -> tuple[int | str, str]:
+    if torch.cuda.is_available():
+        count = torch.cuda.device_count()
+        if count > 1:
+            try:
+                get_ipython()  # type: ignore
+                return count, "ddp_notebook"
+            except NameError:
+                return count, "ddp"
+        return 1, "auto"
+    return "auto", "auto"
+
+
 def main() -> None:
     set_seed()
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -89,11 +102,13 @@ def main() -> None:
 
     ema_callback = EMACallback(decay=config.ema_decay)
     wandb_logger = setup_wandb_logger(project_name="recrec-recsys", run_name="recrec-training")
+    devices, strategy = get_device_and_strategy()
 
     trainer = pl.Trainer(
         max_epochs=config.max_epochs,
         accelerator="auto",
-        devices="auto",
+        devices=devices,
+        strategy=strategy,
         callbacks=[ema_callback],
         gradient_clip_val=config.grad_clip,
         logger=[wandb_logger] if wandb_logger is not None else True,

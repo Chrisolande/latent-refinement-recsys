@@ -30,7 +30,13 @@ from .data import (
     validate_item_indexing,
 )
 from .lightning_module import RecRecLightning
-from .train import INTERACTION_PATH, SBERT_EMBEDDING_PATH, set_seed, setup_wandb_logger
+from .train import (
+    INTERACTION_PATH,
+    SBERT_EMBEDDING_PATH,
+    get_device_and_strategy,
+    set_seed,
+    setup_wandb_logger,
+)
 
 
 def get_wandb_api_key() -> str | None:
@@ -137,11 +143,13 @@ def create_objective(
         # Official Optuna PyTorch Lightning pruning callback
         pruning_cb = PyTorchLightningPruningCallback(trial=trial, monitor="val_ndcg10")
         ema_cb = EMACallback(decay=trial_config.ema_decay)
+        devices, strategy = get_device_and_strategy()
 
         trainer = pl.Trainer(
             max_epochs=search_epochs,
             accelerator="auto",
-            devices="auto",
+            devices=devices,
+            strategy=strategy,
             callbacks=[ema_cb, pruning_cb],
             gradient_clip_val=trial_config.grad_clip,
             enable_progress_bar=False,
@@ -160,7 +168,7 @@ def create_objective(
 
 
 def run_hparam_search_and_train(
-    n_trials: int = 20,
+    n_trials: int = 40,
     search_epochs: int = 15,
     final_epochs: int = 50,
     project_name: str = "recrec-recsys",
@@ -253,10 +261,13 @@ def run_hparam_search_and_train(
     if wandb_logger is not None and hasattr(wandb_logger, "experiment"):
         wandb_logger.experiment.config.update({"hpo_best_trial": study.best_trial.number, **study.best_params})
 
+    devices, strategy = get_device_and_strategy()
+
     trainer = pl.Trainer(
         max_epochs=final_epochs,
         accelerator="auto",
-        devices="auto",
+        devices=devices,
+        strategy=strategy,
         callbacks=[ema_callback, checkpoint_callback, early_stop_callback],
         gradient_clip_val=best_config.grad_clip,
         logger=[wandb_logger] if wandb_logger is not None else True,
@@ -270,4 +281,4 @@ def run_hparam_search_and_train(
 
 
 if __name__ == "__main__":
-    run_hparam_search_and_train(n_trials=15, search_epochs=12, final_epochs=50)
+    run_hparam_search_and_train(n_trials=40, search_epochs=12, final_epochs=50)
