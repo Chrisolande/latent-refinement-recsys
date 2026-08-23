@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 
 @dataclass
-class RecRecConfig:
+class RefineRecConfig:
     embedding_dim: int = 384
     max_history_length: int = 50
     outer_steps: int = 7
@@ -22,3 +22,6 @@ class RecRecConfig:
     num_workers: int = 3
     exclude_history_items_from_negatives: bool = True
 
+
+# Backward-compatible alias
+RecRecConfig = RefineRecConfig

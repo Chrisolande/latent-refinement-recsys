@@ -29,7 +29,9 @@ def extract_sbert_item_embeddings(
     with open(metadata_path, "rb") as f:
         metadata = pickle.load(f)
 
-    id_to_title = metadata["title"] if isinstance(metadata, dict) and "title" in metadata else metadata
+    id_to_title = (
+        metadata["title"] if isinstance(metadata, dict) and "title" in metadata else metadata
+    )
 
     texts = []
     for item_id in item_ids:
@@ -42,7 +44,7 @@ def extract_sbert_item_embeddings(
 
     chunks = []
     for start in tqdm(range(0, len(texts), batch_size), desc="SBERT"):
-        batch_texts = texts[start:start + batch_size]
+        batch_texts = texts[start : start + batch_size]
         chunks.append(
             sbert.encode(
                 batch_texts,

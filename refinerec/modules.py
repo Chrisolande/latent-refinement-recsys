@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from .config import RecRecConfig
+from .config import RefineRecConfig
 
 
 class InputEncoding(nn.Module):
@@ -47,7 +47,7 @@ class CoreRecursionMLP(nn.Module):
 
 
 class RecursivePreferenceRefinement(nn.Module):
-    def __init__(self, config: RecRecConfig):
+    def __init__(self, config: RefineRecConfig):
         super().__init__()
         d = config.embedding_dim
         self.outer_steps = config.outer_steps
@@ -116,18 +116,20 @@ class CandidateScoring(nn.Module):
         return logits
 
 
-class RecRec(nn.Module):
-    def __init__(self, pretrained_sbert_embeddings: torch.Tensor, config: RecRecConfig):
+class RefineRec(nn.Module):
+    def __init__(self, pretrained_sbert_embeddings: torch.Tensor, config: RefineRecConfig):
         super().__init__()
 
         if pretrained_sbert_embeddings.ndim != 2:
             raise ValueError(
-                f"SBERT embeddings must be 2D [num_items, dim], got shape {pretrained_sbert_embeddings.shape}"
+                "SBERT embeddings must be 2D [num_items, dim], "
+                f"got shape {pretrained_sbert_embeddings.shape}"
             )
 
         if pretrained_sbert_embeddings.size(1) != config.embedding_dim:
             raise ValueError(
-                f"Expected embedding dim {config.embedding_dim}, got {pretrained_sbert_embeddings.size(1)}"
+                f"Expected embedding dim {config.embedding_dim}, "
+                f"got {pretrained_sbert_embeddings.size(1)}"
             )
 
         self.item_embeddings = nn.Embedding.from_pretrained(
@@ -156,3 +158,7 @@ class RecRec(nn.Module):
             return y_states[-1]
 
         return self.candidate_scoring(self.item_weight, y_states, candidate_ids)
+
+
+# Backward-compatible alias
+RecRec = RefineRec

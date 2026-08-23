@@ -7,7 +7,7 @@ import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader, Dataset
 
-from .config import RecRecConfig
+from .config import RefineRecConfig
 
 
 def load_user_sequences(interaction_path: str | Path) -> dict[int, list[int]]:
@@ -27,19 +27,17 @@ def load_user_sequences(interaction_path: str | Path) -> dict[int, list[int]]:
     return sequences
 
 
-def validate_item_indexing(user_sequences: dict[int, list[int]], num_items: int) -> None:
+def validate_item_id_continuity(user_sequences: dict[int, list[int]], num_items: int) -> None:
     ids = [item_id for seq in user_sequences.values() for item_id in seq]
     if not ids:
         raise ValueError("No item IDs found.")
     if min(ids) < 0:
         raise ValueError(f"Found negative item ID: {min(ids)}")
     if max(ids) >= num_items:
-        raise ValueError(
-            f"Maximum item ID {max(ids)} exceeds embedding table size {num_items}."
-        )
+        raise ValueError(f"Maximum item ID {max(ids)} exceeds embedding table size {num_items}.")
 
 
-def make_train_val_pairs(
+def generate_causal_interaction_pairs(
     user_sequences: dict[int, list[int]],
 ) -> tuple[list[tuple[list[int], int]], list[tuple[list[int], int]]]:
     train_pairs = []
@@ -59,7 +57,7 @@ def make_train_val_pairs(
     return train_pairs, val_pairs
 
 
-def sample_candidate_set(
+def sample_negative_candidates(
     target_item: int,
     history: Sequence[int],
     num_items: int,
@@ -80,7 +78,7 @@ def sample_candidate_set(
     return candidates, candidates.index(target_item)
 
 
-class RecRecDataset(Dataset):
+class SequentialRecDataset(Dataset):
     def __init__(self, pairs: Sequence[tuple[Sequence[int], int]]):
         self.pairs = [(list(h), int(t)) for h, t in pairs]
 
@@ -91,8 +89,8 @@ class RecRecDataset(Dataset):
         return self.pairs[index]
 
 
-class RecRecCollator:
-    def __init__(self, config: RecRecConfig, num_items: int):
+class CandidateSamplingCollator:
+    def __init__(self, config: RefineRecConfig, num_items: int):
         self.max_history_length = config.max_history_length
         self.candidate_size = config.candidate_size
         self.num_items = num_items
@@ -109,13 +107,13 @@ class RecRecCollator:
         target_index = torch.zeros(batch_size, dtype=torch.long)
 
         for row, (history, target) in enumerate(batch):
-            history = history[-self.max_history_length:]
+            history = history[-self.max_history_length :]
             length = len(history)
 
             history_ids[row, -length:] = torch.tensor(history, dtype=torch.long)
             history_mask[row, -length:] = 1.0
 
-            candidates, target_position = sample_candidate_set(
+            candidates, target_position = sample_negative_candidates(
                 target_item=target,
                 history=history,
                 num_items=self.num_items,
@@ -129,24 +127,24 @@ class RecRecCollator:
         return history_ids, history_mask, candidate_ids, target_index
 
 
-class RecRecDataModule(pl.LightningDataModule):
+class RefineRecDataModule(pl.LightningDataModule):
     def __init__(
         self,
         train_pairs: Sequence[tuple[Sequence[int], int]],
         val_pairs: Sequence[tuple[Sequence[int], int]],
         num_items: int,
-        config: RecRecConfig,
+        config: RefineRecConfig,
     ):
         super().__init__()
         self.train_pairs = list(train_pairs)
         self.val_pairs = list(val_pairs)
         self.num_items = num_items
         self.config = config
-        self.collator = RecRecCollator(config, num_items)
+        self.collator = CandidateSamplingCollator(config, num_items)
 
     def setup(self, stage: str | None = None) -> None:
-        self.train_dataset = RecRecDataset(self.train_pairs)
-        self.val_dataset = RecRecDataset(self.val_pairs)
+        self.train_dataset = SequentialRecDataset(self.train_pairs)
+        self.val_dataset = SequentialRecDataset(self.val_pairs)
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
@@ -167,3 +165,13 @@ class RecRecDataModule(pl.LightningDataModule):
             collate_fn=self.collator,
             pin_memory=torch.cuda.is_available(),
         )
+
+
+# Backward-compatible aliases
+validate_item_indexing = validate_item_id_continuity
+make_train_val_pairs = generate_causal_interaction_pairs
+sample_candidate_set = sample_negative_candidates
+RecRecDataset = SequentialRecDataset
+RecRecCollator = CandidateSamplingCollator
+RecRecDataModule = RefineRecDataModule
+SequentialRecDataModule = RefineRecDataModule

@@ -15,8 +15,7 @@ class EMACallback(Callback):
     def initialize(self, module: torch.nn.Module) -> None:
         if not self.shadow:
             self.shadow = {
-                name: p.detach().clone()
-                for name, p in self.trainable_parameters(module)
+                name: p.detach().clone() for name, p in self.trainable_parameters(module)
             }
 
     @torch.no_grad()

@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "recrec"
+name = "refinerec"
 version = "0.1.0"
-description = "Recursive Refinement for Sequential Recommendation in PyTorch & PyTorch Lightning"
+description = "RefineRec: Iterative Latent Refinement for Sequential Recommendation in PyTorch & PyTorch Lightning"
 readme = "README.md"
 authors = [
     { name = "Chris Olande" }
@@ -18,6 +18,7 @@ keywords = [
     "pytorch",
     "pytorch-lightning",
     "deep-learning",
+    "latent-dynamics",
     "recursive-refinement",
 ]
 classifiers = [
@@ -45,17 +46,24 @@ dev = [
     "ruff>=0.4.0",
     "jupyter>=1.0.0",
 ]
+hpo = [
+    "optuna>=3.0.0",
+    "wandb>=0.15.0",
+]
+
 
 [project.urls]
 Homepage = "https://github.com/Chrisolande/recursive-refinement-recsys"
 Repository = "https://github.com/Chrisolande/recursive-refinement-recsys.git"
 
 [project.scripts]
-recrec-train = "recrec.train:main"
+refinerec-train = "refinerec.train:main"
+recrec-train = "refinerec.train:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["recrec*"]
+include = ["refinerec*"]
+
 
 [tool.ruff]
 line-length = 100

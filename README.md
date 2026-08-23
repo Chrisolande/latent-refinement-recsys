@@ -1,27 +1,42 @@
-# RecRec: Recursive Refinement for Sequential Recommendation
+# ⚡ RefineRec: Iterative Latent Refinement for Sequential Recommendation
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![PyTorch 2.0+](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C.svg?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![PyTorch Lightning 2.0+](https://img.shields.io/badge/Lightning-2.0+-792EE5.svg?logo=lightning&logoColor=white)](https://lightning.ai/)
+[![Optuna](https://img.shields.io/badge/Optuna-HPO-4099FF.svg?logo=optuna&logoColor=white)](https://optuna.org/)
 [![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-A clean, modular PyTorch & PyTorch Lightning implementation of **RecRec** (*Recursive Refinement for Sequential Recommendation*), featuring a production-ready package structure alongside a self-contained interactive Jupyter Notebook ([`RecRecLightning.ipynb`](RecRecLightning.ipynb)).
+> **Ditch $O(L^2)$ attention matrices.** RefineRec formulates sequential recommendation as a continuous preference trajectory problem, converging latent user intent through an ultra-compact dual-loop recurrent MLP with semantic item anchoring.
 
 ---
 
-## Highlights & Core Concepts
+## 💡 Why Latent Refinement?
 
-* **Recursive Latent Refinement**: Replaces computationally heavy autoregressive transformers with iterative residual state updates over a compact, shared parameter-efficient MLP core.
-* **Dual-Loop Dynamics**: Employs an inner recursion loop ($n$ iterations) for evidence synthesis and an outer loop ($T$ iterations) for progressive preference vector trajectory evolution.
-* **Evidence-Anchored Correction Gate**: Dynamically modulates state transitions via an input-dependent sigmoid gate $\mathbf{g}_t$, mitigating drift and anchoring predictions to historical user context.
-* **Multi-Step Deep Supervision**: Optimizes predictions across all intermediate refinement steps ($t = 1 \dots T$), enforcing monotonic ranking improvements and stable gradient flow.
-* **Pretrained Semantic Alignment**: Seamlessly integrates 384-dimensional item semantic embeddings extracted from raw metadata via SentenceTransformers (`all-MiniLM-L6-v2`).
-* **Production-Grade Lightning Integration**: Complete with `RecRecDataModule`, `RecRecLightning` module, Exponential Moving Average (`EMACallback`, $\beta = 0.999$), and numerical diagnostic suites.
+Traditional sequential recommenders (SASRec, BERT4Rec) rely on heavy multi-head self-attention mechanisms with quadratic computational and memory costs $O(L^2 \cdot d)$. **RefineRec** provides an alternative paradigm: it decouples sequence pooling from iterative latent preference dynamics, converging to target representations via weight-tied micro-steps.
+
+| Dimension | SASRec / BERT4Rec | GRU4Rec | RefineRec |
+| :--- | :---: | :---: | :---: |
+| **Complexity** | $O(L^2 \cdot d)$ (Attention bottleneck) | $O(L \cdot d)$ (Hidden state) | **$O(L \cdot d + T \cdot n \cdot d)$ (Constant step cost)** |
+| **Long-Sequence Memory** | Heavy $L \times L$ attention matrices | Vanishing gradients | **Fixed-size history pooling + recurrence** |
+| **Trajectory Inspection**| Blackbox attention maps | Single final hidden state | **Inspectable step-by-step preference evolution** |
+| **Parameter Efficiency** | Multi-layer transformer weights | Recurrent matrix stacks | **Single shared $f_\phi$ MLP core** |
+| **Semantic Priors** | Random ID embeddings | Random ID embeddings | **Pretrained SBERT dense semantic alignment** |
 
 ---
 
-## Architectural Workflow
+## 🎯 Highlights & Architectural Concepts
+
+* 🔄 **Dual-Loop Latent Dynamics**: Decouples fast inner-loop evidence synthesis ($j = 1 \dots n$) from macro outer-loop preference trajectory updates ($t = 1 \dots T$).
+* ⚓ **Evidence-Anchored Correction Gate**: Dynamically modulates state transitions via an input-dependent sigmoid gate $\mathbf{g}_t$, mitigating drift and anchoring predictions to historical user context.
+* ⚡ **Shared Core MLP ($f_\phi$)**: Operates on a compact, parameter-efficient MLP shared across all recursion steps and both loops.
+* 📈 **Multi-Step Deep Supervision**: Optimizes predictions across all intermediate refinement steps ($t = 1 \dots T$), enforcing monotonic ranking improvements and stable gradient flow.
+* 🧠 **Zero Cold-Start Semantic Alignment**: Integrates 384-dimensional item semantic embeddings extracted from raw metadata via SentenceTransformers (`all-MiniLM-L6-v2`).
+* 🛠️ **Production-Grade Lightning & HPO**: Equipped with `RefineRecDataModule`, `RefineRecLightning`, `EMACallback` ($\beta = 0.999$), automated Optuna TPE+Hyperband tuning, and pre-flight diagnostic suites.
+
+---
+
+## 🏗️ Architectural Workflow
 
 ```mermaid
 flowchart TD
@@ -62,7 +77,7 @@ flowchart TD
 
 ---
 
-## Mathematical Formulation
+## 📐 Mathematical Formulation
 
 ### 1. Input Context Encoding
 Given an interaction history sequence $S = (i_1, i_2, \dots, i_{|S|})$ and item semantic embeddings $\mathbf{e}_i \in \mathbb{R}^d$:
@@ -98,31 +113,32 @@ $$\mathcal{L}_{\text{total}} = \frac{1}{T} \sum_{t=1}^T \mathcal{L}_{\text{CE}}(
 
 ---
 
-## Repository Layout
+## 📂 Repository Layout
 
 ```
 .
-├── .gitattributes                       # Linguist language override (*.ipynb -> Python)
+├── .gitattributes                       # Linguist language override
 ├── pyproject.toml                       # Build system, package metadata, and dependency specs
 ├── README.md                            # Comprehensive architectural documentation
-├── RecRecLightning.ipynb                # Self-contained, executable Jupyter notebook
-└── recrec/                              # Modular production package
+├── RefineRecLightning.ipynb             # Self-contained, executable Jupyter notebook
+└── refinerec/                           # Modular production package
     ├── __init__.py                      # Public API exports
     ├── callbacks.py                     # Exponential Moving Average callback (EMACallback)
-    ├── config.py                        # Dataclass hyperparameters (RecRecConfig)
+    ├── config.py                        # Dataclass hyperparameters (RefineRecConfig)
     ├── data.py                          # Causal pair generation, negative sampling, DataModule
-    ├── diagnostics.py                   # Paper assertions & single-batch sanity check
+    ├── diagnostics.py                   # Invariant audit & single-batch sanity check
     ├── embeddings.py                    # Offline SBERT metadata embedding extraction
-    ├── lightning_module.py              # PyTorch Lightning module (RecRecLightning)
+    ├── hpo.py                           # Optuna TPE + Hyperband pruning & W&B tracking
+    ├── lightning_module.py              # PyTorch Lightning module (RefineRecLightning)
     ├── losses.py                        # Multi-step deep supervision cross-entropy loss
     ├── metrics.py                       # Top-K ranking evaluation metrics (HR@k, NDCG@k, Prec@k)
-    ├── modules.py                       # Core PyTorch modules (InputEncoding, CoreRecursionMLP, RecRec)
+    ├── modules.py                       # Core PyTorch modules (InputEncoding, CoreRecursionMLP, RefineRec)
     └── train.py                         # End-to-end training pipeline and CLI entrypoint
 ```
 
 ---
 
-## Getting Started
+## 🚀 Getting Started
 
 ### Installation
 
@@ -144,7 +160,7 @@ uv pip install -e .
 To extract 384-dimensional dense semantic vectors from text metadata:
 
 ```python
-from recrec.embeddings import extract_sbert_item_embeddings
+from refinerec.embeddings import extract_sbert_item_embeddings
 
 extract_sbert_item_embeddings(
     interaction_path="data/Luxury_Beauty_5.txt",
@@ -156,38 +172,38 @@ extract_sbert_item_embeddings(
 
 ---
 
-## Training & Evaluation Workflows
+## ⚡ Training & Evaluation Workflows
 
 ### 1. Command Line Interface (CLI)
-Execute full training with diagnostics and validation using either the console script or module runner:
+Execute full training with pre-flight invariant checks and validation:
 
 ```bash
 # Using installed entrypoint
-recrec-train
+refinerec-train
 
 # Or directly via python module
-python -m recrec.train
+python -m refinerec.train
 ```
 
 ### 2. Standalone Jupyter Notebook
-An end-to-end executable notebook containing data ingestion, model architecture, training loop, and evaluation charts is available at [`RecRecLightning.ipynb`](RecRecLightning.ipynb).
+An end-to-end executable notebook containing data ingestion, model architecture, training loop, and evaluation charts is available at [`RefineRecLightning.ipynb`](RefineRecLightning.ipynb).
 
 ### 3. Programmatic Lightning Pipeline
 
 ```python
 import pytorch_lightning as pl
 import torch
-from recrec import (
+from refinerec import (
     EMACallback,
-    RecRecConfig,
-    RecRecDataModule,
-    RecRecLightning,
+    RefineRecConfig,
+    RefineRecDataModule,
+    RefineRecLightning,
+    generate_causal_interaction_pairs,
     load_user_sequences,
-    make_train_val_pairs,
 )
 
 # 1. Hyperparameter Configuration
-config = RecRecConfig(
+config = RefineRecConfig(
     embedding_dim=384,
     outer_steps=7,
     inner_steps=3,
@@ -202,9 +218,9 @@ config = RecRecConfig(
 # 2. Ingest Data & Setup DataModule
 user_sequences = load_user_sequences("data/Luxury_Beauty_5.txt")
 item_embeddings = torch.load("data/sbert_item_embeddings.pt")
-train_pairs, val_pairs = make_train_val_pairs(user_sequences)
+train_pairs, val_pairs = generate_causal_interaction_pairs(user_sequences)
 
-datamodule = RecRecDataModule(
+datamodule = RefineRecDataModule(
     train_pairs=train_pairs,
     val_pairs=val_pairs,
     num_items=item_embeddings.size(0),
@@ -212,7 +228,7 @@ datamodule = RecRecDataModule(
 )
 
 # 3. Instantiate Lightning Model & Trainer
-model = RecRecLightning(
+model = RefineRecLightning(
     pretrained_sbert_embeddings=item_embeddings,
     config=config,
 )
@@ -228,14 +244,28 @@ trainer.fit(model, datamodule=datamodule)
 trainer.validate(model, datamodule=datamodule)
 ```
 
+### 4. Automated Hyperparameter Optimization (Optuna + W&B)
+
+```python
+from refinerec.hpo import run_hparam_search
+
+# Run TPE + Hyperband HPO search
+study = run_hparam_search(
+    n_trials=40,
+    search_epochs=12,
+    project_name="refinerec",
+)
+print("Best hyperparameters:", study.best_params)
+```
+
 ---
 
-## Configuration Reference
+## ⚙️ Configuration Reference
 
-All hyperparameters are centralized in `RecRecConfig`:
+All hyperparameters are centralized in `RefineRecConfig`:
 
 | Parameter | Type | Default | Math Symbol | Description |
-| :--- | :---: | :---: | :---: | :--- |
+| :--- | :---: | :---: | :---: | : |
 | `embedding_dim` | `int` | `384` | $d$ | Item semantic feature dimension |
 | `max_history_length` | `int` | `50` | $L_{\max}$ | Maximum historical interaction sequence length |
 | `outer_steps` | `int` | `7` | $T$ | Number of outer refinement iterations |
@@ -254,7 +284,7 @@ All hyperparameters are centralized in `RecRecConfig`:
 
 ---
 
-## Evaluation Protocol
+## 📊 Evaluation Protocol
 
 Evaluation adheres strictly to standard leave-one-out ranking protocol over sampled 100-item candidate pools ($1$ ground truth + $99$ uniform negatives):
 
@@ -271,6 +301,7 @@ All metrics are evaluated and reported across top-$K$ cutoffs $K \in \{1, 5, 10\
 
 ---
 
-## License
+## 📄 License
 
 This project is open-source under the [MIT License](LICENSE).
+

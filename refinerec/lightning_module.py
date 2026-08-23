@@ -1,18 +1,18 @@
 import pytorch_lightning as pl
 import torch
 
-from .config import RecRecConfig
+from .config import RefineRecConfig
 from .losses import deep_supervision_loss
 from .metrics import compute_ranking_metrics
-from .modules import RecRec
+from .modules import RefineRec
 
 
-class RecRecLightning(pl.LightningModule):
-    def __init__(self, pretrained_sbert_embeddings: torch.Tensor, config: RecRecConfig):
+class RefineRecLightning(pl.LightningModule):
+    def __init__(self, pretrained_sbert_embeddings: torch.Tensor, config: RefineRecConfig):
         super().__init__()
         self.save_hyperparameters(ignore=["pretrained_sbert_embeddings"])
         self.config = config
-        self.model = RecRec(pretrained_sbert_embeddings, config)
+        self.model = RefineRec(pretrained_sbert_embeddings, config)
         self.validation_ranks: list[torch.Tensor] = []
 
     def forward(
@@ -72,3 +72,7 @@ class RecRecLightning(pl.LightningModule):
             lr=self.config.learning_rate,
             weight_decay=self.config.weight_decay,
         )
+
+
+# Backward-compatible alias
+RecRecLightning = RefineRecLightning
