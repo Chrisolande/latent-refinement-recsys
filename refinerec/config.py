@@ -23,5 +23,4 @@ class RefineRecConfig:
     exclude_history_items_from_negatives: bool = True
 
 
-# Backward-compatible alias
 RecRecConfig = RefineRecConfig

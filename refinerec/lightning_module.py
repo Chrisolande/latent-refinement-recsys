@@ -74,5 +74,4 @@ class RefineRecLightning(pl.LightningModule):
         )
 
 
-# Backward-compatible alias
 RecRecLightning = RefineRecLightning

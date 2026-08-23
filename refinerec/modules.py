@@ -160,5 +160,4 @@ class RefineRec(nn.Module):
         return self.candidate_scoring(self.item_weight, y_states, candidate_ids)
 
 
-# Backward-compatible alias
 RecRec = RefineRec

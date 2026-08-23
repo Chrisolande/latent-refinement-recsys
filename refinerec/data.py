@@ -167,7 +167,6 @@ class RefineRecDataModule(pl.LightningDataModule):
         )
 
 
-# Backward-compatible aliases
 validate_item_indexing = validate_item_id_continuity
 make_train_val_pairs = generate_causal_interaction_pairs
 sample_candidate_set = sample_negative_candidates

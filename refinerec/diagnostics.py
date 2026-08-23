@@ -51,6 +51,5 @@ def smoke_test_batch_diagnostics(model: RefineRecLightning, loader: DataLoader) 
     print(f"Uniform {cand_k}-way CE: {math.log(cand_k):.4f}")
 
 
-# Backward-compatible aliases
 validate_paper_compliance = verify_architecture_invariants
 inspect_one_batch = smoke_test_batch_diagnostics
