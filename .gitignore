@@ -1,0 +1,29 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyTorch Lightning logs & checkpoints
+lightning_logs/
+checkpoints/
+*.ckpt
+
+# IDE and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Virtual environment
+.venv/
+env/
+venv/
+ENV/
+
+# Archives & cache
+*.zip
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.ipynb_checkpoints/
