@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from .config import RefineRecConfig
+from ..config import RefineRecConfig
 
 
 class InputEncoding(nn.Module):
@@ -160,4 +160,3 @@ class RefineRec(nn.Module):
         return self.candidate_scoring(self.item_weight, y_states, candidate_ids)
 
 
-RecRec = RefineRec
