@@ -3,25 +3,11 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![PyTorch 2.0+](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C.svg?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![PyTorch Lightning 2.0+](https://img.shields.io/badge/Lightning-2.0+-792EE5.svg?logo=lightning&logoColor=white)](https://lightning.ai/)
-[![Optuna](https://img.shields.io/badge/Optuna-HPO-4099FF.svg?logo=optuna&logoColor=white)](https://optuna.org/)
+[![Weights & Biases](https://img.shields.io/badge/W&B-Report-FFBE00.svg?logo=weightsandbiases&logoColor=black)](https://wandb.ai/olandechris-/refinerec/reports/RefineRec-Bayesian-Optimization-and-Five-Seed-Validation--VmlldzoxNzc5NjQwNA?accessToken=egmmekquwgr4ygitbfcg578evciwogl5q9br61ooksbnaenypd4qznvduncqizzh)
 [![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-> **Ditch $O(L^2)$ attention matrices.** RefineRec formulates sequential recommendation as a continuous preference trajectory problem, converging latent user intent through an ultra-compact dual-loop recurrent MLP with semantic item anchoring.
-
----
-
-## 💡 Why Latent Refinement?
-
-Traditional sequential recommenders (SASRec, BERT4Rec) rely on heavy multi-head self-attention mechanisms with quadratic computational and memory costs $O(L^2 \cdot d)$. **RefineRec** provides an alternative paradigm: it decouples sequence pooling from iterative latent preference dynamics, converging to target representations via weight-tied micro-steps.
-
-| Dimension | SASRec / BERT4Rec | GRU4Rec | RefineRec |
-| :--- | :---: | :---: | :---: |
-| **Complexity** | $O(L^2 \cdot d)$ (Attention bottleneck) | $O(L \cdot d)$ (Hidden state) | **$O(L \cdot d + T \cdot n \cdot d)$ (Constant step cost)** |
-| **Long-Sequence Memory** | Heavy $L \times L$ attention matrices | Vanishing gradients | **Fixed-size history pooling + recurrence** |
-| **Trajectory Inspection**| Blackbox attention maps | Single final hidden state | **Inspectable step-by-step preference evolution** |
-| **Parameter Efficiency** | Multi-layer transformer weights | Recurrent matrix stacks | **Single shared $f_\phi$ MLP core** |
-| **Semantic Priors** | Random ID embeddings | Random ID embeddings | **Pretrained SBERT dense semantic alignment** |
+> RefineRec formulates sequential recommendation as an iterative latent preference trajectory problem, converging user intent through a dual-loop recurrent MLP with semantic item anchoring.
 
 ---
 
@@ -32,7 +18,7 @@ Traditional sequential recommenders (SASRec, BERT4Rec) rely on heavy multi-head 
 * ⚡ **Shared Core MLP ($f_\phi$)**: Operates on a compact, parameter-efficient MLP shared across all recursion steps and both loops.
 * 📈 **Multi-Step Deep Supervision**: Optimizes predictions across all intermediate refinement steps ($t = 1 \dots T$), enforcing monotonic ranking improvements and stable gradient flow.
 * 🧠 **Zero Cold-Start Semantic Alignment**: Integrates 384-dimensional item semantic embeddings extracted from raw metadata via SentenceTransformers (`all-MiniLM-L6-v2`).
-* 🛠️ **Production-Grade Lightning & HPO**: Equipped with `RefineRecDataModule`, `RefineRecLightning`, `EMACallback` ($\beta = 0.999$), automated Optuna TPE+Hyperband tuning, and pre-flight diagnostic suites.
+* 🛠️ **Production-Grade Lightning & HPO**: Equipped with `RefineRecDataModule`, `RefineRecLightning`, `EMACallback` ($\beta = 0.999$), automated W&B Bayesian Sweeps with Hyperband early termination, and pre-flight diagnostic suites.
 
 ---
 
@@ -113,6 +99,45 @@ $$\mathcal{L}_{\text{total}} = \frac{1}{T} \sum_{t=1}^T \mathcal{L}_{\text{CE}}(
 
 ---
 
+## 📈 Empirical Results & Multi-Seed Diagnostics
+
+> 📊 **Interactive W&B Benchmark Report:** View complete training dynamics, learning rate & gradient diagnostics, and multi-seed convergence curves in the [RefineRec Bayesian Optimization & Five-Seed Validation Report](https://wandb.ai/olandechris-/refinerec/reports/RefineRec-Bayesian-Optimization-and-Five-Seed-Validation--VmlldzoxNzc5NjQwNA?accessToken=egmmekquwgr4ygitbfcg578evciwogl5q9br61ooksbnaenypd4qznvduncqizzh).
+
+### 1. Optimal Hyperparameters (Bayesian Optimization)
+Discovered via Bayesian search with Hyperband early termination:
+
+```json
+{
+  "learning_rate": 0.00023275623934351656,
+  "weight_decay": 0.00000767530048530261,
+  "dropout": 0.1,
+  "temperature": 0.5695201251085029,
+  "preference_scale": 0.10364724283518208,
+  "batch_size": 128,
+  "core_depth": 6,
+  "ema_decay": 0.999,
+  "grad_clip": 3.0,
+  "inner_steps": 4,
+  "outer_steps": 3
+}
+```
+
+### 2. Five-Seed Validation Diagnostics
+Evaluated across 5 independent random seeds using the optimal Bayesian configuration:
+
+| Seed | Run ID | Best NDCG@10 | Terminal NDCG@10 | Best Epoch | Epochs Completed |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| 42 | `wulq23cc` | 0.57114 | 0.57114 | 39 | 40 |
+| 43 | `66ozl5pr` | 0.58612 | 0.58421 | 24 | 30 |
+| 44 | `25s48rlx` | 0.59091 | 0.58660 | 17 | 23 |
+| 45 | `rovxc1wb` | **0.59188** | **0.59064** | 12 | 18 |
+| 46 | `04051a7l` | 0.58926 | 0.58736 | 15 | 21 |
+| **Mean ± Std** | — | **0.58586 ± 0.00761** | **0.58399 ± 0.00681** | — | — |
+
+> **Checkpoint Retention Diagnostic:** The mean best-to-terminal drop is **0.00187**, with a maximum of **0.00431**. Best-checkpoint retention is therefore appropriate and highly stable for reporting and deployment evaluation.
+
+---
+
 ## 📂 Repository Layout
 
 ```
@@ -121,6 +146,7 @@ $$\mathcal{L}_{\text{total}} = \frac{1}{T} \sum_{t=1}^T \mathcal{L}_{\text{CE}}(
 ├── pyproject.toml                       # Build system, package metadata, and dependency specs
 ├── README.md                            # Comprehensive architectural documentation
 ├── RefineRecLightning.ipynb             # Self-contained, executable Jupyter notebook
+├── sweep.yaml                           # W&B Bayesian Sweep & Hyperband configuration
 └── refinerec/                           # Modular production package
     ├── __init__.py                      # Public API exports
     ├── callbacks.py                     # Exponential Moving Average callback (EMACallback)
@@ -128,11 +154,12 @@ $$\mathcal{L}_{\text{total}} = \frac{1}{T} \sum_{t=1}^T \mathcal{L}_{\text{CE}}(
     ├── data.py                          # Causal pair generation, negative sampling, DataModule
     ├── diagnostics.py                   # Invariant audit & single-batch sanity check
     ├── embeddings.py                    # Offline SBERT metadata embedding extraction
-    ├── hpo.py                           # Optuna TPE + Hyperband pruning & W&B tracking
+    ├── hpo.py                           # W&B Bayesian Sweep & Hyperband HPO search
     ├── lightning_module.py              # PyTorch Lightning module (RefineRecLightning)
     ├── losses.py                        # Multi-step deep supervision cross-entropy loss
     ├── metrics.py                       # Top-K ranking evaluation metrics (HR@k, NDCG@k, Prec@k)
     ├── modules.py                       # Core PyTorch modules (InputEncoding, CoreRecursionMLP, RefineRec)
+    ├── sweep.yaml                       # Packaged sweep configuration
     └── train.py                         # End-to-end training pipeline and CLI entrypoint
 ```
 
@@ -244,18 +271,21 @@ trainer.fit(model, datamodule=datamodule)
 trainer.validate(model, datamodule=datamodule)
 ```
 
-### 4. Automated Hyperparameter Optimization (Optuna + W&B)
+### 4. Automated Hyperparameter Optimization (W&B Sweeps + Bayesian Optimization)
+
+RefineRec integrates native W&B Sweeps configured via [`sweep.yaml`](sweep.yaml):
 
 ```python
 from refinerec.hpo import run_hparam_search
 
-# Run TPE + Hyperband HPO search
-study = run_hparam_search(
+# Launch native W&B Bayesian Sweep with Hyperband early termination
+sweep_id = run_hparam_search(
     n_trials=40,
-    search_epochs=12,
+    search_epochs=15,
     project_name="refinerec",
+    config_path="sweep.yaml",
 )
-print("Best hyperparameters:", study.best_params)
+print(f"Sweep completed. ID: {sweep_id}")
 ```
 
 ---

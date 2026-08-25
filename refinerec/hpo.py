@@ -5,9 +5,14 @@ from typing import Any
 
 import pytorch_lightning as pl
 import torch
-import wandb
 import yaml
-from pytorch_lightning.loggers import WandbLogger
+
+try:
+    import wandb
+    from pytorch_lightning.loggers import WandbLogger
+except ImportError:
+    wandb = None
+    WandbLogger = None
 
 from .callbacks import EMACallback
 from .config import RefineRecConfig
@@ -113,6 +118,12 @@ def create_sweep_trial(
     project_name: str = DEFAULT_PROJECT,
 ):
     """Create the training function called once for every W&B agent run."""
+    if wandb is None or WandbLogger is None:
+        raise ImportError(
+            "W&B and WandbLogger are required for HPO. "
+            "Please install wandb (e.g. pip install wandb)."
+        )
+
     num_items = item_embeddings.size(0)
 
     def train_trial() -> None:
