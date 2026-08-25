@@ -63,7 +63,9 @@ flowchart TD
 
 ---
 
-## 📐 Mathematical Formulation
+<details>
+<summary><b>📐 Mathematical Formulation (Click to expand)</b></summary>
+<br>
 
 ### 1. Input Context Encoding
 Given an interaction history sequence $S = (i_1, i_2, \dots, i_{|S|})$ and item semantic embeddings $\mathbf{e}_i \in \mathbb{R}^d$:
@@ -96,6 +98,8 @@ For a candidate set of item embeddings $\{\mathbf{e}_j\}_{j=1}^K$ ($1$ ground tr
 $$s_{t, j} = \frac{\mathbf{y}_{t+1}^\top \mathbf{e}_j}{\tau}$$
 
 $$\mathcal{L}_{\text{total}} = \frac{1}{T} \sum_{t=1}^T \mathcal{L}_{\text{CE}}(\mathbf{s}_t, \text{target})$$
+
+</details>
 
 ---
 
@@ -294,40 +298,33 @@ print(f"Sweep completed. ID: {sweep_id}")
 
 All hyperparameters are centralized in `RefineRecConfig`:
 
-| Parameter | Type | Default | Math Symbol | Description |
-| :--- | :---: | :---: | :---: | : |
-| `embedding_dim` | `int` | `384` | $d$ | Item semantic feature dimension |
-| `max_history_length` | `int` | `50` | $L_{\max}$ | Maximum historical interaction sequence length |
-| `outer_steps` | `int` | `7` | $T$ | Number of outer refinement iterations |
-| `inner_steps` | `int` | `3` | $n$ | Number of inner recursive evidence updates |
-| `core_depth` | `int` | `5` | $D$ | Depth of shared MLP core network $f_\phi$ |
-| `preference_scale` | `float` | `1.0` | $L$ | Preference residual update step scale |
-| `temperature` | `float` | `1.0` | $\tau$ | Candidate dot-product logit scaling factor |
-| `candidate_size` | `int` | `100` | $K$ | Candidate evaluation pool size ($1 \text{ pos} + 99 \text{ neg}$) |
-| `learning_rate` | `float` | `1e-3` | $\eta$ | Adam optimizer learning rate |
-| `batch_size` | `int` | `512` | $B$ | Mini-batch size for training and validation |
-| `max_epochs` | `int` | `50` | — | Maximum training epochs |
-| `ema_decay` | `float` | `0.999` | $\beta$ | Exponential Moving Average decay factor |
-| `freeze_item_embeddings` | `bool` | `False` | — | Freeze pretrained item embeddings during training |
-| `num_workers` | `int` | `3` | — | DataLoader multiprocessing workers |
-| `exclude_history_items_from_negatives` | `bool` | `True` | — | Filter past user interactions when sampling negatives |
+| Parameter | Type | Default | Description |
+| :--- | :---: | :---: | :--- |
+| `embedding_dim` | `int` | `384` | Item semantic feature dimension |
+| `max_history_length` | `int` | `50` | Maximum historical interaction sequence length |
+| `outer_steps` | `int` | `7` | Number of outer refinement iterations |
+| `inner_steps` | `int` | `3` | Number of inner recursive evidence updates |
+| `core_depth` | `int` | `5` | Depth of shared MLP core network |
+| `preference_scale` | `float` | `1.0` | Preference residual update step scale |
+| `temperature` | `float` | `1.0` | Candidate dot-product logit scaling factor |
+| `candidate_size` | `int` | `100` | Candidate evaluation pool size ($1 \text{ pos} + 99 \text{ neg}$) |
+| `learning_rate` | `float` | `1e-3` | Adam optimizer learning rate |
+| `batch_size` | `int` | `512` | Mini-batch size for training and validation |
+| `max_epochs` | `int` | `50` | Maximum training epochs |
+| `ema_decay` | `float` | `0.999` | Exponential Moving Average decay factor |
+| `freeze_item_embeddings` | `bool` | `False` | Freeze pretrained item embeddings during training |
+| `num_workers` | `int` | `3` | DataLoader multiprocessing workers |
+| `exclude_history_items_from_negatives` | `bool` | `True` | Filter past user interactions when sampling negatives |
 
 ---
 
 ## 📊 Evaluation Protocol
 
-Evaluation adheres strictly to standard leave-one-out ranking protocol over sampled 100-item candidate pools ($1$ ground truth + $99$ uniform negatives):
+Evaluation uses the standard leave-one-out ranking protocol over sampled 100-item candidate pools (1 ground truth + 99 uniform negatives) across top-$K$ cutoffs $K \in \{1, 5, 10\}$:
 
-* **Hit Ratio ($HR@K$)**:
-  $$\text{HR}@K = \frac{1}{|U|} \sum_{u \in U} \mathbb{I}(\text{rank}_u \le K)$$
-
-* **Normalized Discounted Cumulative Gain ($NDCG@K$)**:
-  $$\text{NDCG}@K = \frac{1}{|U|} \sum_{u \in U} \frac{\mathbb{I}(\text{rank}_u \le K)}{\log_2(\text{rank}_u + 1)}$$
-
-* **Precision ($Prec@K$)**:
-  $$\text{Prec}@K = \frac{1}{|U|} \sum_{u \in U} \frac{\mathbb{I}(\text{rank}_u \le K)}{K}$$
-
-All metrics are evaluated and reported across top-$K$ cutoffs $K \in \{1, 5, 10\}$.
+* **Hit Ratio (HR@K)**: Measures whether the true target item is ranked within the top-$K$ recommendations.
+* **NDCG@K**: Normalized Discounted Cumulative Gain, rewarding higher positions for relevant items.
+* **Precision (Prec@K)**: Fraction of top-$K$ recommendations that match the target item.
 
 ---
 
