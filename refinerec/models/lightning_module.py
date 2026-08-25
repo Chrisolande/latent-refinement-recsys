@@ -1,7 +1,7 @@
 import pytorch_lightning as pl
 import torch
 
-from .config import RefineRecConfig
+from ..config import RefineRecConfig
 from .losses import deep_supervision_loss
 from .metrics import compute_ranking_metrics
 from .modules import RefineRec
@@ -74,4 +74,3 @@ class RefineRecLightning(pl.LightningModule):
         )
 
 
-RecRecLightning = RefineRecLightning
