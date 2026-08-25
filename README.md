@@ -4,7 +4,7 @@
 [![PyTorch 2.0+](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C.svg?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![PyTorch Lightning 2.0+](https://img.shields.io/badge/Lightning-2.0+-792EE5.svg?logo=lightning&logoColor=white)](https://lightning.ai/)
 [![Weights & Biases](https://img.shields.io/badge/W&B-Report-FFBE00.svg?logo=weightsandbiases&logoColor=black)](https://wandb.ai/olandechris-/refinerec/reports/RefineRec-Bayesian-Optimization-and-Five-Seed-Validation--VmlldzoxNzc5NjQwNA?accessToken=egmmekquwgr4ygitbfcg578evciwogl5q9br61ooksbnaenypd4qznvduncqizzh)
-[![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg?logo=ruff&logoColor=white)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 > RefineRec formulates sequential recommendation as an iterative latent preference trajectory problem, converging user intent through a dual-loop recurrent MLP with semantic item anchoring.
@@ -22,64 +22,22 @@
 
 ---
 
-## 🏗️ Architectural Workflow
-
-```mermaid
-flowchart TD
-    subgraph Data["1. Input and Sequence Encoding"]
-        H["User Interaction History [i_1, i_2, ..., i_L]"]
-        E["Semantic Item Embeddings (SBERT, d=384)"]
-        H -->|"Lookup and Mask"| HE["History Embeddings Matrix"]
-        HE -->|"Masked Mean Pooling"| X["Context Vector x"]
-        X --> Y0["Initial Preference y_0 = x"]
-        X --> Z0["Initial Evidence z_0 = 0"]
-    end
-
-    Y0 --> StepT["Step t"]
-    Z0 --> StepT
-
-    subgraph Refinement["2. Outer Refinement Loop t = 1 ... T"]
-        StepT --> ZPrev["Evidence state z_t^(j-1)"]
-        ZPrev --> ConcatInner["Concatenate [x, y_t, z_t^(j-1)]"]
-        ConcatInner --> FPhiInner["Shared Core MLP f_phi"]
-        FPhiInner --> ZNext["Updated evidence z_t^(j)"]
-        ZNext -->|"repeat for j = 1 ... n"| ConcatInner
-    end
-
-    InnerOut["Final inner evidence z_t^(n)"]
-    Refinement --> InnerOut
-
-    InnerOut --> Gate["Correction Gate g_t = sigmoid(W_t [x, y_t])"]
-    X --> Gate
-    Y0 --> Gate
-    Gate --> ZAnchored["Anchored Evidence z_t = (1 - g_t) * z_t^(n) + g_t * x"]
-
-    ZAnchored --> CoreUpdate["tanh(f_phi([x, y_t, z_t]))"]
-    X --> CoreUpdate
-    Y0 --> CoreUpdate
-    CoreUpdate --> Residual["Preference Update y_(t+1) = y_t + L * Delta"]
-
-    subgraph Scoring["3. Candidate Scoring and Objectives"]
-        Residual --> Logits["Logits s_(t,j) = (y_(t+1) dot e_j) / tau"]
-        Logits --> Loss["Deep Supervision Loss (1/T) sum CE"]
-        Logits --> Eval["Top-K Ranking: HR@K, NDCG@K, Prec@K"]
-    end
-```
-
----
+## 📐 Mathematical Formulation
 
 <details>
-<summary><b>📐 Mathematical Formulation (Click to expand)</b></summary>
-<br>
+<summary><b>1. Input Context Encoding</b></summary>
 
-### 1. Input Context Encoding
 Given an interaction history sequence $S = (i_1, i_2, \dots, i_{|S|})$ and item semantic embeddings $\mathbf{e}_i \in \mathbb{R}^d$:
 
 $$\mathbf{x} = \frac{\sum_{i \in S} m_i \mathbf{e}_i}{\sum_{i \in S} m_i}, \quad \mathbf{y}_0 = \mathbf{x}, \quad \mathbf{z}_0 = \mathbf{0}$$
 
 where $m_i \in \{0, 1\}$ denotes sequence validity mask indicators and $d = 384$.
 
-### 2. Dual-Loop Latent Refinement
+</details>
+
+<details>
+<summary><b>2. Dual-Loop Latent Refinement</b></summary>
+
 For outer refinement step $t \in \{1, \dots, T\}$:
 
 * **Inner Evidence Synthesis ($j = 1, \dots, n$):**
@@ -97,7 +55,11 @@ Where:
 * $\mathbf{W}_t \in \mathbb{R}^{d \times 2d}$ is a step-specific linear gating transformation.
 * $L$ denotes the preference residual scaling factor ($L = 1.0$).
 
-### 3. Candidate Scoring & Multi-Step Deep Supervision
+</details>
+
+<details>
+<summary><b>3. Candidate Scoring & Multi-Step Deep Supervision</b></summary>
+
 For a candidate set of item embeddings $\{\mathbf{e}_j\}_{j=1}^K$ ($1$ ground truth target + $K-1$ sampled negatives) and temperature $\tau$:
 
 $$s_{t, j} = \frac{\mathbf{y}_{t+1}^\top \mathbf{e}_j}{\tau}$$
@@ -110,28 +72,9 @@ $$\mathcal{L}_{\text{total}} = \frac{1}{T} \sum_{t=1}^T \mathcal{L}_{\text{CE}}(
 
 ## 📈 Empirical Results & Multi-Seed Diagnostics
 
-> 📊 **Interactive W&B Benchmark Report:** View complete training dynamics, learning rate & gradient diagnostics, and multi-seed convergence curves in the [RefineRec Bayesian Optimization & Five-Seed Validation Report](https://wandb.ai/olandechris-/refinerec/reports/RefineRec-Bayesian-Optimization-and-Five-Seed-Validation--VmlldzoxNzc5NjQwNA?accessToken=egmmekquwgr4ygitbfcg578evciwogl5q9br61ooksbnaenypd4qznvduncqizzh).
+The winning hyperparameter configuration (found via Bayesian search) is documented in the [Configuration Reference](#️-configuration-reference) table below. Full training dynamics, learning rate & gradient diagnostics, and multi-seed convergence curves are available in the [RefineRec Bayesian Optimization & Five-Seed Validation Report](https://wandb.ai/olandechris-/refinerec/reports/RefineRec-Bayesian-Optimization-and-Five-Seed-Validation--VmlldzoxNzc5NjQwNA?accessToken=egmmekquwgr4ygitbfcg578evciwogl5q9br61ooksbnaenypd4qznvduncqizzh) (also linked via the W&B badge above).
 
-### 1. Optimal Hyperparameters (Bayesian Optimization)
-Discovered via Bayesian search with Hyperband early termination:
-
-```json
-{
-  "learning_rate": 0.00023275623934351656,
-  "weight_decay": 0.00000767530048530261,
-  "dropout": 0.1,
-  "temperature": 0.5695201251085029,
-  "preference_scale": 0.10364724283518208,
-  "batch_size": 128,
-  "core_depth": 6,
-  "ema_decay": 0.999,
-  "grad_clip": 3.0,
-  "inner_steps": 4,
-  "outer_steps": 3
-}
-```
-
-### 2. Five-Seed Validation Diagnostics
+### Five-Seed Validation Diagnostics
 Evaluated across 5 independent random seeds using the optimal Bayesian configuration:
 
 | Seed | Run ID | Best NDCG@10 | Terminal NDCG@10 | Best Epoch | Epochs Completed |
@@ -421,4 +364,3 @@ Evaluation uses the standard leave-one-out ranking protocol over sampled 100-ite
 ## 📄 License
 
 This project is open-source under the [MIT License](LICENSE).
-
