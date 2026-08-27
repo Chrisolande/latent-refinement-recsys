@@ -1,3 +1,4 @@
+import hashlib
 import random
 from collections import defaultdict
 from collections.abc import Sequence
@@ -7,7 +8,9 @@ import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader, Dataset
 
-from .config import RefineRecConfig
+from ..config import RefineRecConfig
+
+VALIDATION_CANDIDATE_SEED = 1729
 
 
 def load_user_sequences(interaction_path: str | Path) -> dict[int, list[int]]:
@@ -63,6 +66,7 @@ def sample_negative_candidates(
     num_items: int,
     candidate_size: int,
     exclude_history: bool = True,
+    rng: random.Random | None = None,
 ) -> tuple[list[int], int]:
     forbidden = {target_item}
     if exclude_history:
@@ -72,9 +76,10 @@ def sample_negative_candidates(
     if len(available) < candidate_size - 1:
         raise ValueError("Not enough negatives to construct candidate set.")
 
-    negatives = random.sample(available, candidate_size - 1)
+    sampler = rng if rng is not None else random
+    negatives = sampler.sample(available, candidate_size - 1)
     candidates = negatives + [target_item]
-    random.shuffle(candidates)
+    sampler.shuffle(candidates)
     return candidates, candidates.index(target_item)
 
 
@@ -90,11 +95,27 @@ class SequentialRecDataset(Dataset):
 
 
 class CandidateSamplingCollator:
-    def __init__(self, config: RefineRecConfig, num_items: int):
+    def __init__(
+        self,
+        config: RefineRecConfig,
+        num_items: int,
+        deterministic_seed: int | None = None,
+    ):
         self.max_history_length = config.max_history_length
         self.candidate_size = config.candidate_size
         self.num_items = num_items
         self.exclude_history = config.exclude_history_items_from_negatives
+        self.deterministic_seed = deterministic_seed
+
+    def _row_rng(self, history: Sequence[int], target: int) -> random.Random | None:
+        if self.deterministic_seed is None:
+            return None
+        payload = (
+            f"{self.deterministic_seed}|{target}|"
+            + ",".join(str(item) for item in history)
+        ).encode("utf-8")
+        digest = hashlib.sha256(payload).digest()
+        return random.Random(int.from_bytes(digest[:8], "big"))
 
     def __call__(
         self, batch: list[tuple[list[int], int]]
@@ -119,6 +140,7 @@ class CandidateSamplingCollator:
                 num_items=self.num_items,
                 candidate_size=self.candidate_size,
                 exclude_history=self.exclude_history,
+                rng=self._row_rng(history, target),
             )
 
             candidate_ids[row] = torch.tensor(candidates, dtype=torch.long)
@@ -140,7 +162,12 @@ class RefineRecDataModule(pl.LightningDataModule):
         self.val_pairs = list(val_pairs)
         self.num_items = num_items
         self.config = config
-        self.collator = CandidateSamplingCollator(config, num_items)
+        self.train_collator = CandidateSamplingCollator(config, num_items)
+        self.val_collator = CandidateSamplingCollator(
+            config,
+            num_items,
+            deterministic_seed=VALIDATION_CANDIDATE_SEED,
+        )
 
     def setup(self, stage: str | None = None) -> None:
         self.train_dataset = SequentialRecDataset(self.train_pairs)
@@ -152,7 +179,7 @@ class RefineRecDataModule(pl.LightningDataModule):
             batch_size=self.config.batch_size,
             shuffle=True,
             num_workers=self.config.num_workers,
-            collate_fn=self.collator,
+            collate_fn=self.train_collator,
             pin_memory=torch.cuda.is_available(),
         )
 
@@ -162,15 +189,26 @@ class RefineRecDataModule(pl.LightningDataModule):
             batch_size=self.config.batch_size,
             shuffle=False,
             num_workers=self.config.num_workers,
-            collate_fn=self.collator,
+            collate_fn=self.val_collator,
             pin_memory=torch.cuda.is_available(),
         )
 
 
-validate_item_indexing = validate_item_id_continuity
-make_train_val_pairs = generate_causal_interaction_pairs
-sample_candidate_set = sample_negative_candidates
-RecRecDataset = SequentialRecDataset
-RecRecCollator = CandidateSamplingCollator
-RecRecDataModule = RefineRecDataModule
-SequentialRecDataModule = RefineRecDataModule
+
+def resolve_data_paths() -> tuple[Path, Path]:
+    """Resolves interaction and embedding paths, checking local directory first then Kaggle."""
+    local_interaction = Path("data/Luxury_Beauty_5.txt")
+    local_embeddings = Path("data/sbert_item_embeddings.pt")
+
+    if local_interaction.exists() and local_embeddings.exists():
+        return local_interaction, local_embeddings
+
+    kaggle_interaction = Path("/kaggle/input/datasets/chrisolande2/recsys/data/Luxury_Beauty_5.txt")
+    kaggle_embeddings = Path(
+        "/kaggle/input/datasets/chrisolande2/recsys/data/sbert_item_embeddings.pt"
+    )
+
+    if kaggle_interaction.exists() and kaggle_embeddings.exists():
+        return kaggle_interaction, kaggle_embeddings
+
+    return local_interaction, local_embeddings
