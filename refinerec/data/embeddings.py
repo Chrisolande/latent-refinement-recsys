@@ -14,7 +14,7 @@ def extract_sbert_item_embeddings(
     batch_size: int = 512,
     device: str | None = None,
 ) -> torch.Tensor:
-    from .data import load_user_sequences
+    from .loader import load_user_sequences
 
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -29,9 +29,7 @@ def extract_sbert_item_embeddings(
     with open(metadata_path, "rb") as f:
         metadata = pickle.load(f)
 
-    id_to_title = (
-        metadata["title"] if isinstance(metadata, dict) and "title" in metadata else metadata
-    )
+    id_to_title = metadata.get("title", metadata) if isinstance(metadata, dict) else metadata
 
     texts = []
     for item_id in item_ids:
