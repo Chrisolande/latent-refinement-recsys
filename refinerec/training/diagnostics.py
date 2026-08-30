@@ -4,9 +4,9 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from .config import RefineRecConfig
-from .lightning_module import RefineRecLightning
-from .modules import CoreRecursionMLP
+from ..config import RefineRecConfig
+from ..models.lightning_module import RefineRecLightning
+from ..models.modules import CoreRecursionMLP
 
 
 def verify_architecture_invariants(model: RefineRecLightning, config: RefineRecConfig) -> None:
@@ -51,5 +51,3 @@ def smoke_test_batch_diagnostics(model: RefineRecLightning, loader: DataLoader) 
     print(f"Uniform {cand_k}-way CE: {math.log(cand_k):.4f}")
 
 
-validate_paper_compliance = verify_architecture_invariants
-inspect_one_batch = smoke_test_batch_diagnostics
