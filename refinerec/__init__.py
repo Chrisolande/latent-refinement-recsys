@@ -1,61 +1,68 @@
-from .config import RecRecConfig, RefineRecConfig
+from .config import RefineRecConfig
 from .data import (
     CandidateSamplingCollator,
-    RecRecCollator,
-    RecRecDataModule,
-    RecRecDataset,
     RefineRecDataModule,
-    SequentialRecDataModule,
     SequentialRecDataset,
+    extract_sbert_item_embeddings,
     generate_causal_interaction_pairs,
     load_user_sequences,
+    resolve_data_paths,
     sample_negative_candidates,
     validate_item_id_continuity,
 )
-from .diagnostics import smoke_test_batch_diagnostics, verify_architecture_invariants
-from .hpo import run_hparam_search, run_hparam_search_and_train, suggest_refinerec_search_space
-from .lightning_module import RecRecLightning, RefineRecLightning
-from .losses import deep_supervision_loss
-from .metrics import compute_ranking_metrics
-from .modules import (
+from .hpo import (
+    BestValNDCGCallback,
+    configure_wandb_auth,
+    create_sweep_trial,
+    finalized_trial_metrics,
+    load_sweep_config,
+    run_hparam_search,
+)
+from .models import (
     CandidateScoring,
     CoreRecursionMLP,
     InputEncoding,
-    RecRec,
     RecursivePreferenceRefinement,
     RefineRec,
+    RefineRecLightning,
+    compute_ranking_metrics,
+    deep_supervision_loss,
 )
-from .train import main, setup_wandb_logger, train
+from .training import (
+    EMACallback,
+    main,
+    smoke_test_batch_diagnostics,
+    train,
+    verify_architecture_invariants,
+)
 
 __all__ = [
+    "BestValNDCGCallback",
     "CandidateSamplingCollator",
     "CandidateScoring",
     "CoreRecursionMLP",
+    "EMACallback",
     "InputEncoding",
-    "RecRec",
-    "RecRecCollator",
-    "RecRecConfig",
-    "RecRecDataModule",
-    "RecRecDataset",
-    "RecRecLightning",
     "RecursivePreferenceRefinement",
     "RefineRec",
     "RefineRecConfig",
     "RefineRecDataModule",
     "RefineRecLightning",
-    "SequentialRecDataModule",
     "SequentialRecDataset",
+    "configure_wandb_auth",
+    "create_sweep_trial",
     "compute_ranking_metrics",
     "deep_supervision_loss",
+    "extract_sbert_item_embeddings",
+    "finalized_trial_metrics",
     "generate_causal_interaction_pairs",
+    "load_sweep_config",
     "load_user_sequences",
     "main",
+    "resolve_data_paths",
     "run_hparam_search",
-    "run_hparam_search_and_train",
     "sample_negative_candidates",
-    "setup_wandb_logger",
     "smoke_test_batch_diagnostics",
-    "suggest_refinerec_search_space",
     "train",
     "validate_item_id_continuity",
     "verify_architecture_invariants",
