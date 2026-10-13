@@ -1,0 +1,60 @@
+name: refinerec-final-focused-bayes-30ep
+method: bayes
+metric:
+  name: best_val_ndcg10
+  goal: maximize
+parameters:
+  seed:
+    value: 42
+  learning_rate:
+    distribution: log_uniform_values
+    min: 0.0002
+    max: 0.0008
+  weight_decay:
+    distribution: log_uniform_values
+    min: 0.000003
+    max: 0.00005
+  dropout:
+    values: [0.05, 0.1, 0.15]
+  temperature:
+    distribution: uniform
+    min: 0.5
+    max: 0.75
+  preference_scale:
+    distribution: uniform
+    min: 0.08
+    max: 0.2
+  batch_size:
+    value: 128
+  core_depth:
+    value: 6
+  ema_decay:
+    value: 0.999
+  grad_clip:
+    value: 3.0
+  inner_steps:
+    value: 4
+  outer_steps:
+    value: 3
+  search_epochs:
+    value: 30
+  early_stopping_patience:
+    value: 5
+  early_stopping_min_delta:
+    value: 0.0001
+  num_workers:
+    value: 0
+  require_cuda:
+    value: true
+  log_model:
+    value: false
+  purpose:
+    value: final-focused-hpo
+  research_stage:
+    value: final-automation-hpo
+  evaluation_protocol:
+    value: fixed-validation-candidates-v1
+  validation_candidate_seed:
+    value: 1729
+  source_sweep_id:
+    value: 4brq24lv
