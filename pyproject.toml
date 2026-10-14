@@ -50,6 +50,12 @@ hpo = [
     "optuna>=3.0.0",
     "wandb>=0.15.0",
 ]
+automation = [
+    "optuna>=3.0.0",
+    "wandb>=0.15.0",
+    "wandb-workspaces>=0.4.0",
+    "PyYAML>=6.0",
+]
 
 
 [project.urls]
@@ -57,12 +63,13 @@ Homepage = "https://github.com/Chrisolande/recursive-refinement-recsys"
 Repository = "https://github.com/Chrisolande/recursive-refinement-recsys.git"
 
 [project.scripts]
-refinerec-train = "refinerec.train:main"
-recrec-train = "refinerec.train:main"
+refinerec-train = "refinerec.training.trainer:main"
+recrec-train = "refinerec.training.trainer:main"
+refinerec-final-automation = "automation.final_automation:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["refinerec*"]
+include = ["refinerec*", "automation*"]
 
 
 [tool.ruff]
