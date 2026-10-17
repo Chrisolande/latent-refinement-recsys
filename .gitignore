@@ -27,3 +27,6 @@ ENV/
 htmlcov/
 *.egg-info/
 .ipynb_checkpoints/
+
+# Large raw datasets (fetched separately / kept local)
+data/*.json.gz
