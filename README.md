@@ -26,37 +26,42 @@
 
 ```mermaid
 flowchart TD
-    subgraph Data["1. Input & Sequence Encoding"]
+    subgraph Data["1. Input and Sequence Encoding"]
         H["User Interaction History [i_1, i_2, ..., i_L]"]
         E["Semantic Item Embeddings (SBERT, d=384)"]
-        H -->|Lookup & Mask| HE["History Embeddings Matrix"]
-        HE -->|Masked Mean Pooling| X["Context Vector x"]
+        H -->|"Lookup and Mask"| HE["History Embeddings Matrix"]
+        HE -->|"Masked Mean Pooling"| X["Context Vector x"]
         X --> Y0["Initial Preference y_0 = x"]
         X --> Z0["Initial Evidence z_0 = 0"]
     end
 
-    subgraph Refinement["2. Outer Refinement Loop (t = 1 ... T)"]
-        Y0 & Z0 --> StepT["Step t"]
-        
-        subgraph InnerLoop["Inner Evidence Loop (j = 1 ... n)"]
-            ZPrev["z_t^(j-1)"] --> ConcatInner["[x || y_t || z_t^(j-1)]"]
-            ConcatInner --> FPhiInner["Shared Core MLP f_phi"]
-            FPhiInner --> ZNext["z_t^(j)"]
-        end
-        
-        StepT --> InnerLoop
-        InnerLoop --> ZEvidence["Final Inner Evidence z_t^(n)"]
-        
-        ZEvidence & X & Y0 --> Gate["Correction Gate: g_t = σ(W_t [x || y_t])"]
-        Gate --> ZAnchored["Anchored Evidence: z_t = (1 - g_t) ⊙ z_t^(n) + g_t ⊙ x"]
-        
-        ZAnchored & X & Y0 --> CoreUpdate["tanh(f_phi([x || y_t || z_t]))"]
-        CoreUpdate --> Residual["Preference Update: y_(t+1) = y_t + L · Δ"]
+    Y0 --> StepT["Step t"]
+    Z0 --> StepT
+
+    subgraph Refinement["2. Outer Refinement Loop t = 1 ... T"]
+        StepT --> ZPrev["Evidence state z_t^(j-1)"]
+        ZPrev --> ConcatInner["Concatenate [x, y_t, z_t^(j-1)]"]
+        ConcatInner --> FPhiInner["Shared Core MLP f_phi"]
+        FPhiInner --> ZNext["Updated evidence z_t^(j)"]
+        ZNext -->|"repeat for j = 1 ... n"| ConcatInner
     end
 
-    subgraph Scoring["3. Candidate Scoring & Objectives"]
-        Residual --> Logits["Logits s_(t, j) = (y_(t+1) · e_j) / τ"]
-        Logits --> Loss["Deep Supervision Loss: (1/T) Σ CrossEntropy"]
+    InnerOut["Final inner evidence z_t^(n)"]
+    Refinement --> InnerOut
+
+    InnerOut --> Gate["Correction Gate g_t = sigmoid(W_t [x, y_t])"]
+    X --> Gate
+    Y0 --> Gate
+    Gate --> ZAnchored["Anchored Evidence z_t = (1 - g_t) * z_t^(n) + g_t * x"]
+
+    ZAnchored --> CoreUpdate["tanh(f_phi([x, y_t, z_t]))"]
+    X --> CoreUpdate
+    Y0 --> CoreUpdate
+    CoreUpdate --> Residual["Preference Update y_(t+1) = y_t + L * Delta"]
+
+    subgraph Scoring["3. Candidate Scoring and Objectives"]
+        Residual --> Logits["Logits s_(t,j) = (y_(t+1) dot e_j) / tau"]
+        Logits --> Loss["Deep Supervision Loss (1/T) sum CE"]
         Logits --> Eval["Top-K Ranking: HR@K, NDCG@K, Prec@K"]
     end
 ```
@@ -195,8 +200,8 @@ Evaluated across 5 independent random seeds using the optimal Bayesian configura
 Clone the repository and install in editable mode:
 
 ```bash
-git clone https://github.com/Chrisolande/recursive-refinement-recsys.git
-cd recursive-refinement-recsys
+git clone https://github.com/Chrisolande/latent-refinement-recsys.git
+cd latent-refinement-recsys
 
 # Install via pip
 pip install -e .

@@ -59,8 +59,8 @@ automation = [
 
 
 [project.urls]
-Homepage = "https://github.com/Chrisolande/recursive-refinement-recsys"
-Repository = "https://github.com/Chrisolande/recursive-refinement-recsys.git"
+Homepage = "https://github.com/Chrisolande/latent-refinement-recsys"
+Repository = "https://github.com/Chrisolande/latent-refinement-recsys.git"
 
 [project.scripts]
 refinerec-train = "refinerec.training.trainer:main"
