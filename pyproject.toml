@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "refinerec"
 version = "0.1.0"
-description = "RefineRec: Iterative Latent Refinement for Sequential Recommendation in PyTorch & PyTorch Lightning"
+description = "RefineRec: Recursive Preference Refinement with Semantic Evidence Anchoring in PyTorch & PyTorch Lightning"
 readme = "README.md"
 authors = [
     { name = "Chris Olande" }
